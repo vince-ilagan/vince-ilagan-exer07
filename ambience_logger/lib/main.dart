@@ -81,6 +81,9 @@ class _MyHomePageState extends State<MyHomePage> {
   List<double> _motionMagnitudes = [];
   DateTime? _lastSampleTime;
 
+  final record = AudioRecorder();
+  int recordCount = 0;
+
   @override
   void initState() {
     _checkPermissions();
@@ -89,6 +92,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final logs = Provider.of<LogProvider>(context).records;
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title, style: TextStyle(color: Colors.white)),
@@ -101,7 +105,11 @@ class _MyHomePageState extends State<MyHomePage> {
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: OutlinedButton(
                 onPressed: () {
-                  setState(() => isRecording = !isRecording);
+                  if (isRecording) {
+                    _stopRecording();
+                  } else {
+                    _startRecording();
+                  }
                 },
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -122,6 +130,22 @@ class _MyHomePageState extends State<MyHomePage> {
                   ],
                 ),
               ),
+            ),
+          ),
+          //see the list of records to check
+          Expanded(
+            child: ListView.builder(
+              itemCount: logs.length,
+              itemBuilder: (context, index) {
+                final record = logs[index];
+                return ListTile(
+                  title: Text(record.fileName),
+                  subtitle: Text(
+                    'Location: (${record.location.latitude.toStringAsFixed(2)}, ${record.location.longitude.toStringAsFixed(2)})\n'
+                    'Average Motion: ${record.averageMotion.toStringAsFixed(2)}',
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -175,13 +199,14 @@ class _MyHomePageState extends State<MyHomePage> {
       }
     }
 
-    //permisions for mic and sensors
+    //permisions for mic
     var micStatus = await Permission.microphone.request();
-    var sensorsStatus = await Permission.sensors.request();
 
-    if (micStatus.isGranted && sensorsStatus.isGranted) {
-      permissionGranted = true;
-    }
+    setState(() {
+      if (micStatus.isGranted && permission != LocationPermission.denied) {
+        permissionGranted = true;
+      }
+    });
   }
 
   void _startLocation() {
@@ -190,5 +215,42 @@ class _MyHomePageState extends State<MyHomePage> {
         location = Coordinates(position.latitude, position.longitude);
       }),
     );
+  }
+
+  //combined start recording function that also starts audio recording, sensors, and location tracking
+  Future<void> _startRecording() async {
+    if (permissionGranted) {
+      var dir = await getApplicationDocumentsDirectory();
+      var filePath = '${dir.path}/recording${++recordCount}';
+      _startSensors();
+      _startLocation();
+
+      await record.start(RecordConfig(), path: filePath);
+      setState(() => isRecording = true);
+    }
+  }
+
+  Future<void> _stopRecording() async {
+    var path = await record.stop();
+    for (var sub in _streamSubscriptions) {
+      sub.cancel();
+    }
+    _streamSubscriptions.clear();
+
+    if (path != null && location != null) {
+      double averageMotion = _motionMagnitudes.isNotEmpty
+          ? _motionMagnitudes.reduce((a, b) => a + b) / _motionMagnitudes.length
+          : 0.0;
+
+      Provider.of<LogProvider>(context, listen: false).addRecord(
+        AmbienceRecord(
+          path.split('/').last,
+          path,
+          Coordinates(location!.latitude, location!.longitude),
+          averageMotion,
+        ),
+      );
+    }
+    setState(() => isRecording = false);
   }
 }
