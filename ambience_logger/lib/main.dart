@@ -17,8 +17,38 @@ class Coordinates {
   Coordinates(this.latitude, this.longitude);
 }
 
+//for the data for ambience record
+class AmbienceRecord {
+  String fileName;
+  String filePath;
+  Coordinates location;
+  double averageMotion;
+
+  AmbienceRecord(
+    this.fileName,
+    this.filePath,
+    this.location,
+    this.averageMotion,
+  );
+}
+
+//used to store ambience records and for display in the UI
+class LogProvider extends ChangeNotifier {
+  List<AmbienceRecord> records = [];
+
+  void addRecord(AmbienceRecord record) {
+    records.insert(0, record);
+    notifyListeners();
+  }
+}
+
 void main() {
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => LogProvider(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -43,6 +73,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  bool isRecording = false; //placeholder
   bool permissionGranted = false;
   Coordinates? location;
 
@@ -61,19 +92,31 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: Column(
         children: [
-          const SizedBox(height: 20),
           Center(
-            child: OutlinedButton(
-              onPressed: () {
-                //recording code goes here
-              },
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Start Recording'),
-                  SizedBox(width: 10),
-                  Icon(Icons.play_arrow, size: 20),
-                ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: OutlinedButton(
+                onPressed: () {
+                  setState(() => isRecording = !isRecording);
+                },
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      isRecording ? "Stop Recording" : "Start Recording",
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: isRecording ? Colors.red : Colors.blue,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      isRecording ? Icons.stop : Icons.play_arrow,
+                      color: isRecording ? Colors.red : Colors.blue,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
