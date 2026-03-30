@@ -144,7 +144,13 @@ class _MyHomePageState extends State<MyHomePage> {
       }
     }
 
-    permissionGranted = true;
+    //permisions for mic and sensors
+    var micStatus = await Permission.microphone.request();
+    var sensorsStatus = await Permission.sensors.request();
+
+    if (micStatus.isGranted && sensorsStatus.isGranted) {
+      permissionGranted = true;
+    }
   }
 
   Future<void> getLocation() async {
