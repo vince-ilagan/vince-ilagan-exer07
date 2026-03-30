@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 
+//taken from sample code
 class Coordinates {
   double latitude;
   double longitude;
@@ -72,17 +73,21 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  //state variables
   bool isRecording = false;
   bool permissionGranted = false;
   Coordinates? location;
 
+  //for motion intensity
   final _streamSubscriptions = <StreamSubscription<dynamic>>[];
   List<double> _motionMagnitudes = [];
   DateTime? _lastSampleTime;
 
+  //for recording audio
   final record = AudioRecorder();
   int recordCount = 0;
 
+  //for playing audio
   final _audioPlayer = AudioPlayer();
   String? playingFilePath;
 
@@ -109,15 +114,18 @@ class _MyHomePageState extends State<MyHomePage> {
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: OutlinedButton(
+                //checks if recording or not
                 onPressed: isRecording ? _stopRecording : _startRecording,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
+                      //displays text accordingly
                       isRecording ? "Stop Recording" : "Start Recording",
                       style: TextStyle(
                         fontSize: 16,
+                        //changes color based if recording or not
                         color: isRecording ? Colors.red : Colors.indigo,
                       ),
                     ),
@@ -131,7 +139,7 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
             ),
           ),
-          //see the list of records to check
+          //shows the complete list of recordings
           Expanded(
             child: ListView.builder(
               itemCount: logs.length,
@@ -175,6 +183,7 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  //starts the sensor and calculates motion intensity every 250ms and is stored in list.
   void _startSensors() {
     _motionMagnitudes.clear();
     _lastSampleTime = null;
@@ -184,9 +193,11 @@ class _MyHomePageState extends State<MyHomePage> {
         final now = DateTime.now();
         if (_lastSampleTime == null ||
             now.difference(_lastSampleTime!).inMilliseconds >= 250) {
+          //solves magnitude intensity
           double magnitude = sqrt(
             pow(event.x, 2) + pow(event.y, 2) + pow(event.z, 2),
           );
+          //list stored
           _motionMagnitudes.add(magnitude);
           _lastSampleTime = now;
         }
@@ -202,6 +213,7 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  //modified permissions from sample codes
   Future<void> _checkPermissions() async {
     LocationPermission permission;
     bool serviceEnabled;
@@ -233,6 +245,7 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  //starts location tracking and also stored in list
   Future<void> _startLocation() async {
     Position pos = await Geolocator.getCurrentPosition();
     setState(() {
@@ -261,6 +274,7 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  //stops recording, sensor, and location tracking, also calculates average motion intensity and stores it to the list
   Future<void> _stopRecording() async {
     var path = await record.stop();
     for (var sub in _streamSubscriptions) {
