@@ -77,6 +77,10 @@ class _MyHomePageState extends State<MyHomePage> {
   bool permissionGranted = false;
   Coordinates? location;
 
+  final _streamSubscriptions = <StreamSubscription<dynamic>>[];
+  List<double> _motionMagnitudes = [];
+  DateTime? _lastSampleTime;
+
   @override
   void initState() {
     _checkPermissions();
@@ -125,6 +129,33 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  void _startSensors() {
+    _motionMagnitudes.clear();
+    _lastSampleTime = null;
+
+    _streamSubscriptions.add(
+      userAccelerometerEvents.listen((UserAccelerometerEvent event) {
+        final now = DateTime.now();
+        if (_lastSampleTime == null ||
+            now.difference(_lastSampleTime!).inMilliseconds >= 250) {
+          double magnitude = sqrt(
+            pow(event.x, 2) + pow(event.y, 2) + pow(event.z, 2),
+          );
+          _motionMagnitudes.add(magnitude);
+          _lastSampleTime = now;
+        }
+      }),
+    );
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    for (final subscription in _streamSubscriptions) {
+      subscription.cancel();
+    }
+  }
+
   Future<void> _checkPermissions() async {
     LocationPermission permission;
     bool serviceEnabled;
@@ -153,14 +184,11 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  Future<void> getLocation() async {
-    if (permissionGranted) {
-      Position pos = await Geolocator.getCurrentPosition();
-      var loc = Coordinates(pos.latitude, pos.longitude);
-
-      setState(() {
-        location = loc;
-      });
-    }
+  void _startLocation() {
+    _streamSubscriptions.add(
+      Geolocator.getPositionStream().listen((Position position) {
+        location = Coordinates(position.latitude, position.longitude);
+      }),
+    );
   }
 }
