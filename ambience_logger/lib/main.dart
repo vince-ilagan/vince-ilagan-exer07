@@ -6,7 +6,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'dart:math';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 
@@ -57,7 +56,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      theme: ThemeData(primarySwatch: Colors.blue),
+      theme: ThemeData(primarySwatch: Colors.indigo),
       home: const MyHomePage(title: 'Ambience Logger'),
       debugShowCheckedModeBanner: false,
     );
@@ -73,7 +72,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  bool isRecording = false; //placeholder
+  bool isRecording = false;
   bool permissionGranted = false;
   Coordinates? location;
 
@@ -84,10 +83,16 @@ class _MyHomePageState extends State<MyHomePage> {
   final record = AudioRecorder();
   int recordCount = 0;
 
+  final _audioPlayer = AudioPlayer();
+  String? playingFilePath;
+
   @override
   void initState() {
     _checkPermissions();
     super.initState();
+    _audioPlayer.onPlayerComplete.listen(
+      (_) => setState(() => playingFilePath = null),
+    );
   }
 
   @override
@@ -104,13 +109,7 @@ class _MyHomePageState extends State<MyHomePage> {
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: OutlinedButton(
-                onPressed: () {
-                  if (isRecording) {
-                    _stopRecording();
-                  } else {
-                    _startRecording();
-                  }
-                },
+                onPressed: isRecording ? _stopRecording : _startRecording,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
@@ -119,13 +118,13 @@ class _MyHomePageState extends State<MyHomePage> {
                       isRecording ? "Stop Recording" : "Start Recording",
                       style: TextStyle(
                         fontSize: 16,
-                        color: isRecording ? Colors.red : Colors.blue,
+                        color: isRecording ? Colors.red : Colors.indigo,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Icon(
                       isRecording ? Icons.stop : Icons.play_arrow,
-                      color: isRecording ? Colors.red : Colors.blue,
+                      color: isRecording ? Colors.red : Colors.indigo,
                     ),
                   ],
                 ),
@@ -138,11 +137,34 @@ class _MyHomePageState extends State<MyHomePage> {
               itemCount: logs.length,
               itemBuilder: (context, index) {
                 final record = logs[index];
-                return ListTile(
-                  title: Text(record.fileName),
-                  subtitle: Text(
-                    'Location: (${record.location.latitude.toStringAsFixed(2)}, ${record.location.longitude.toStringAsFixed(2)})\n'
-                    'Average Motion: ${record.averageMotion.toStringAsFixed(2)}',
+                bool isHigh = record.averageMotion > 15.0;
+
+                return Container(
+                  color: isHigh ? Colors.red : Colors.transparent,
+                  child: ListTile(
+                    title: Text(record.fileName),
+                    subtitle: Text(
+                      "(${record.location.latitude.toStringAsFixed(5)}, ${record.location.longitude.toStringAsFixed(5)})\nMotion intensity: ${record.averageMotion.toStringAsFixed(5)}",
+                    ),
+                    trailing: IconButton(
+                      icon: Icon(
+                        playingFilePath == record.filePath
+                            ? Icons.stop
+                            : Icons.play_arrow,
+                      ),
+                      onPressed: () async {
+                        if (isRecording) return;
+                        if (playingFilePath == record.filePath) {
+                          await _audioPlayer.stop();
+                          setState(() => playingFilePath = null);
+                        } else {
+                          await _audioPlayer.play(
+                            DeviceFileSource(record.filePath),
+                          );
+                          setState(() => playingFilePath = record.filePath);
+                        }
+                      },
+                    ),
                   ),
                 );
               },
@@ -203,16 +225,25 @@ class _MyHomePageState extends State<MyHomePage> {
     var micStatus = await Permission.microphone.request();
 
     setState(() {
-      if (micStatus.isGranted && permission != LocationPermission.denied) {
+      if (micStatus.isGranted &&
+          (permission == LocationPermission.always ||
+              permission == LocationPermission.whileInUse)) {
         permissionGranted = true;
       }
     });
   }
 
-  void _startLocation() {
+  Future<void> _startLocation() async {
+    Position pos = await Geolocator.getCurrentPosition();
+    setState(() {
+      location = Coordinates(pos.latitude, pos.longitude);
+    });
+
     _streamSubscriptions.add(
       Geolocator.getPositionStream().listen((Position position) {
-        location = Coordinates(position.latitude, position.longitude);
+        setState(() {
+          location = Coordinates(position.latitude, position.longitude);
+        });
       }),
     );
   }
@@ -221,9 +252,9 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _startRecording() async {
     if (permissionGranted) {
       var dir = await getApplicationDocumentsDirectory();
-      var filePath = '${dir.path}/recording${++recordCount}';
+      var filePath = '${dir.path}/recording${++recordCount}.m4a';
       _startSensors();
-      _startLocation();
+      await _startLocation();
 
       await record.start(RecordConfig(), path: filePath);
       setState(() => isRecording = true);
