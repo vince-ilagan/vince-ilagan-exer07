@@ -1,6 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'dart:math';
+import 'package:sensors_plus/sensors_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'package:record/record.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 class Coordinates {
   double latitude;
@@ -20,7 +28,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: const MyHomePage(title: 'Geolocator Demo'),
+      home: const MyHomePage(title: 'Ambience Logger'),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
@@ -46,30 +55,29 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
-      body: Padding(
-        padding: EdgeInsets.all(30),
-        child: Center(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              OutlinedButton(
-                onPressed: getLocation,
-                child: Text("Save Location"),
+      appBar: AppBar(
+        title: Text(widget.title, style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.indigo,
+      ),
+      body: Column(
+        children: [
+          const SizedBox(height: 20),
+          Center(
+            child: OutlinedButton(
+              onPressed: () {
+                //recording code goes here
+              },
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Start Recording'),
+                  SizedBox(width: 10),
+                  Icon(Icons.play_arrow, size: 20),
+                ],
               ),
-              Padding(
-                padding: EdgeInsets.symmetric(vertical: 10),
-                child: Text(
-                  location == null
-                      ? 'No saved location yet'
-                      : 'You are located at:\n (${location?.latitude}, ${location?.longitude})',
-                  style: TextStyle(fontSize: 20),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
